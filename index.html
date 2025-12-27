@@ -30,12 +30,25 @@ const ctx = c.getContext('2d');
 let n_multiplier = 1; 
 let blinkRow = 0, blinkCol = 0, blink = true;
 
-const rawData = [[01,10,20,27,36],[14,18,28,36,39],[02,03,14,25,30],[09,22,24,30,35],[02,22,24,27,38],[01,05,16,35,38],[12,16,23,27,30],[04,09,32,33,36],[05,06,07,19,32],[02,10,14,33,35]];
-const yearFreq = [29,37,37,48,41,40,56,45,41,36,42,46,37,48,31,30,27,35,40,35,39,43,39,51,36,47,52,45,42,35,44,34,34,34,39,36,36,45,38];
+const rawData = [[01,15,19,28,38],
+[01,10,20,27,36],[14,18,28,36,39],[02,03,14,25,30],[09,22,24,30,35],[02,22,24,27,38],
+[01,05,16,35,38],[12,16,23,27,30],[04,09,32,33,36],[05,06,07,19,32],[02,10,14,33,35],
+[03,17,27,29,38],[02,09,21,31,38],[10,24,26,28,35],[02,06,17,25,26],[04,07,11,16,26],
+[07,08,15,30,39],[05,23,27,28,31],[06,22,23,24,32],[02,03,16,17,29],[01,07,20,25,37],
+[05,09,14,33,35],[02,05,08,13,29],[02,03,04,20,24],[08,27,30,33,36],[08,13,14,22,28],
+[07,19,22,25,28],[08,06,12,22,34],[09,30,36,38,39],[02,04,05,17,31],[10,13,32,33,37],     
+[05,10,17,28,35],[01,05,33,36,38],[03,11,20,28,31],[14,24,31,36,37],[04,07,16,16,29],
+[12,20,25,28,29],[02,11,15,37,38],[13,18,20,23,36],[01,04,09,14,22],[05,19,31,34,39],       
+[07,14,15,17,30],[07,08,09,26,34],[22,27,30,32,37],[07,24,28,31,32],[11,14,15,27,39],		    
+[01,07,12,29,39],[24,25,34,36,37],[08,12,19,27,28],[11,18,25,26,33],[05,27,28,31,37],	
+[26,32,33,36,39],[18,20,25,29,31],[03,20,26,31,37],[03,04,11,21,34],[08,11,13,37,38],
+[18,15,27,37,38],[03,04,20,25,28],[13,22,30,37,38],[06,13,22,23,27],[02,17,32,35,38]
+];
+const yearFreq = [31,37,37,48,41,40,56,44,41,37,42,46,37,49,32,30,27,37,41,36,39,43,39,52,36,47,53,46,42,35,44,34,34,34,39,38,36,46,39];
 
 function getGameDates(count) {
   let dates = [];
-  let curr = new Date("2025-12-26");
+  let curr = new Date("2025-12-27");
   while(dates.length < count) {
     if(curr.getDay() !== 0) {
       dates.push(`${(curr.getMonth()+1).toString().padStart(2,'0')}/${curr.getDate().toString().padStart(2,'0')}(${["日","一","二","三","四","五","六"][curr.getDay()]})`);
@@ -85,7 +98,7 @@ function draw() {
     }
     // 01-39 號碼 (固定在底部)
     ctx.fillStyle = (i === blinkCol) ? '#0f0' : '#888';
-    ctx.font = 'bold 12px Arial'; ctx.textAlign='center';
+    ctx.font = 'bold 16px Arial'; ctx.textAlign='center';
     ctx.fillText((i+1).toString().padStart(2,'0'), x+cw/2, pad.t+h+35);
   }
 
@@ -124,6 +137,33 @@ function draw() {
     }
   }
 }
+
+// 互動邏輯 (支援觸控與滑鼠)
+function handleInteraction(e) {
+  const rect = c.getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  const x = (clientX - rect.left) * (c.width / rect.width);
+  const y = (clientY - rect.top) * (c.height / rect.height);
+
+  const showDays = n_multiplier * 6;
+  const pad = {l:90, r:40, t:30, b:85};
+  const w = c.width - pad.l - pad.r, h = c.height - pad.t - pad.b;
+  const cw = w / 39, rh = h / (showDays - 1);
+
+  let col = Math.floor((x - pad.l) / cw);
+  let row = Math.round((y - pad.t) / rh);
+
+  if (col >= 0 && col < 39) blinkCol = col;
+  if (row >= 0 && row < showDays) blinkRow = row;
+  sync();
+}
+
+c.addEventListener('mousedown', (e) => { handleInteraction(e); c.isDrawing = true; });
+c.addEventListener('mousemove', (e) => { if(c.isDrawing) handleInteraction(e); });
+window.addEventListener('mouseup', () => { c.isDrawing = false; });
+c.addEventListener('touchstart', (e) => { e.preventDefault(); handleInteraction(e); }, {passive: false});
+c.addEventListener('touchmove', (e) => { e.preventDefault(); handleInteraction(e); }, {passive: false});
 
 setInterval(()=>{ blink=!blink; draw(); }, 400);
 
