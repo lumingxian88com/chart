@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>內容置頂穩定版</title>
+  <style>
+    body { margin:0; background:#000; color:#fff; font-family:sans-serif; display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden; }
+    .container { display:flex; background:#000; padding:10px; }
+    canvas { background:#000; border:1px solid #333; }
+    .panel { width:150px; background:#111; padding:15px; border-left:2px solid #f00; display:flex; flex-direction:column; gap:10px; }
+    .group { background:#1a1a1a; border:1px solid #333; padding:10px; border-radius:10px; text-align:center; }
+    button { width:100%; padding:10px; margin:5px 0; background:#333; color:#fff; border:1px solid #f00; border-radius:5px; cursor:pointer; font-size:20px; font-weight:bold; }
+    .value { font-size:26px; color:#0f0; font-weight:bold; }
+    .label { font-size:12px; color:#888; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <canvas id="chart"></canvas>
+  <div class="panel">
+    <div class="group"><div class="label">天數 (6-60循環)</div><div id="val-days" class="value">6</div><button id="days-inc">▲</button><button id="days-dec">▼</button></div>
+    <div class="group"><div class="label">紅閃 (第一天)</div><div id="val-updown" class="value">0</div><button id="updown-inc">▲</button><button id="updown-dec">▼</button></div>
+    <div class="group"><div class="label">綠閃 (號碼)</div><div id="val-leftright" class="value">0</div><button id="leftright-inc">▲</button><button id="leftright-dec">▼</button></div>
+  </div>
+</div>
+
+<script>
+const c = document.getElementById('chart');
+const ctx = c.getContext('2d');
+let n_multiplier = 1; 
+let blinkRow = 0, blinkCol = 0, blink = true;
+
+const rawData = [[01,10,20,27,36],[14,18,28,36,39],[02,03,14,25,30],[09,22,24,30,35],[02,22,24,27,38],[01,05,16,35,38],[12,16,23,27,30],[04,09,32,33,36],[05,06,07,19,32],[02,10,14,33,35]];
+const yearFreq = [29,37,37,48,41,40,56,45,41,36,42,46,37,48,31,30,27,35,40,35,39,43,39,51,36,47,52,45,42,35,44,34,34,34,39,36,36,45,38];
+
+function getGameDates(count) {
+  let dates = [];
+  let curr = new Date("2025-12-26");
+  while(dates.length < count) {
+    if(curr.getDay() !== 0) {
+      dates.push(`${(curr.getMonth()+1).toString().padStart(2,'0')}/${curr.getDate().toString().padStart(2,'0')}(${["日","一","二","三","四","五","六"][curr.getDay()]})`);
+    }
+    curr.setDate(curr.getDate() - 1);
+  }
+  return dates;
+}
+const gameDates = getGameDates(100);
+
+function draw() {
+  const showDays = n_multiplier * 6;
+  const baseH = 500, baseW = 800;
+  const X = baseH / 6; 
+  
+  // 畫布尺寸依然維持你的公式邏輯
+  c.height = baseH + X + 100; 
+  c.width = baseW + (10 * X / 6) + 120; 
+
+  // *** 關鍵修正：將 top 縮小 (從 50 變 15)，整體內容就往上提了 ***
+  const pad = {l:90, r:40, t:15, b:85}; 
+  const w = c.width - pad.l - pad.r;
+  const h = c.height - pad.t - pad.b;
+  const cw = w / 39, rh = h / showDays; 
+
+  ctx.fillStyle = '#000'; ctx.fillRect(0,0,c.width,c.height);
+
+  // 1. 60-20 標記
+  ctx.fillStyle = '#f00'; ctx.font = 'bold 20px Arial'; 
+  ctx.fillText("60", pad.l-50, pad.t+15);
+  ctx.fillText("20", pad.l-50, pad.t+h+5);
+
+  // 2. 藍條
+  for(let i=0; i<39; i++) {
+    const x = pad.l + i*cw;
+    let val = yearFreq[i] || 0;
+    if(val >= 20) {
+      let barH = ((Math.min(val, 60)-20)/(60-20)) * h;
+      ctx.save();
+      const isPick = (i === blinkCol);
+      ctx.fillStyle = isPick && blink ? '#0ff' : 'rgba(0, 200, 255, 0.35)';
+      ctx.fillRect(x+2, pad.t + h - barH, cw-4, barH);
+      ctx.fillStyle = isPick && blink ? '#fff' : '#0ff';
+      ctx.font = `bold ${Math.max(10, cw/2.3)}px Arial`; ctx.textAlign='center';
+      ctx.fillText(val, x+cw/2, pad.t + h - barH - 8);
+      ctx.restore();
+    }
+    // 01-39 號碼 (固定在底部)
+    ctx.fillStyle = (i === blinkCol) ? '#0f0' : '#888';
+    ctx.font = 'bold 12px Arial'; ctx.textAlign='center';
+    ctx.fillText((i+1).toString().padStart(2,'0'), x+cw/2, pad.t+h+35);
+  }
+
+  // 3. 閃爍線
+  if(blink) {
+    const targetY = pad.t + blinkRow * rh + rh/2; 
+    ctx.strokeStyle = '#f00'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(pad.l, targetY); ctx.lineTo(pad.l+w, targetY); ctx.stroke();
+    const targetX = pad.l + blinkCol * cw + cw/2;
+    ctx.strokeStyle = '#0f0'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(targetX, pad.t); ctx.lineTo(targetX, pad.t+h); ctx.stroke();
+  }
+
+  // 4. 日期與號碼點 (日期維持 mm/dd)
+  for(let r=0; r<showDays; r++) {
+    const y = pad.t + r*rh + rh/2;
+    ctx.fillStyle = (r === blinkRow && blink) ? '#f00' : '#888';
+    let fontSize = Math.max(8, Math.min(14, rh * 0.75));
+    ctx.font = `bold ${fontSize}px Arial`; ctx.textAlign = 'left';
+    ctx.fillText(gameDates[r] || "", 5, y + fontSize/3);
+
+    if(rawData[r]) {
+      rawData[r].forEach(n => {
+        const x = pad.l + (n-1)*cw + cw/2;
+        const onRed = (r === blinkRow), onGreen = (n-1 === blinkCol);
+        ctx.save();
+        let dotR = Math.min(cw/2.1, rh/2.1);
+        ctx.fillStyle = (onRed && onGreen && blink) ? '#fff' : ((onRed || onGreen) && blink ? '#f00' : '#600000');
+        ctx.beginPath(); ctx.arc(x, y, dotR, 0, Math.PI*2); ctx.fill();
+        let numSize = Math.max(6, dotR * 1.3);
+        ctx.fillStyle = (onRed && onGreen && blink) ? '#000' : '#fff';
+        ctx.font = `bold ${numSize}px Arial`; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(n.toString().padStart(2,'0'), x, y + 0.5);
+        ctx.restore();
+      });
+    }
+  }
+}
+
+setInterval(()=>{ blink=!blink; draw(); }, 400);
+
+function sync(){ 
+  document.getElementById('val-days').textContent = n_multiplier * 6; 
+  document.getElementById('val-updown').textContent = blinkRow; 
+  document.getElementById('val-leftright').textContent = blinkCol; 
+  draw(); 
+}
+
+document.getElementById('days-inc').onclick=()=>{ n_multiplier++; if(n_multiplier > 10) n_multiplier = 1; sync(); };
+document.getElementById('days-dec').onclick=()=>{ n_multiplier--; if(n_multiplier < 1) n_multiplier = 10; sync(); };
+document.getElementById('updown-inc').onclick=()=>{ blinkRow=(blinkRow+1)%(n_multiplier*6); sync(); };
+document.getElementById('updown-dec').onclick=()=>{ blinkRow=(blinkRow-1+(n_multiplier*6))%(n_multiplier*6); sync(); };
+document.getElementById('leftright-inc').onclick=()=>{ blinkCol=(blinkCol+1)%39; sync(); };
+document.getElementById('leftright-dec').onclick=()=>{ blinkCol=(blinkCol-1+39)%39; sync(); };
+sync();
+</script>
+</body>
+</html>
