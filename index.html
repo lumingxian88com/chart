@@ -23,8 +23,28 @@
     <div class="group"><div class="label">綠閃 (號碼)</div><div id="val-leftright" class="value">0</div><button id="leftright-inc">▲</button><button id="leftright-dec">▼</button></div>
   </div>
 </div>
+<script src="1125.js"></script>
+<script src="2025.js"></script>
 
 <script>
+// --- 就貼在這裡！把這段貼進來 ---
+let combinedData = [];
+if (typeof ywn1125 !== 'undefined') combinedData = combinedData.concat(ywn1125);
+if (typeof ywn2025 !== 'undefined') combinedData = combinedData.concat(ywn2025);
+
+const rawData = combinedData.map(row => {
+  if(Array.isArray(row[2])) {
+    return row[2].map(n => parseInt(n));
+  }
+  return [];
+});
+// -----------------------------
+
+// 下面這幾行原本就在的要留著：
+const c = document.getElementById('chart');
+const ctx = c.getContext('2d');
+// ...
+  
 const c = document.getElementById('chart');
 const ctx = c.getContext('2d');
 let n_multiplier = 1; 
@@ -169,4 +189,5 @@ sync();
 </script>
 </body>
 </html>
+
 
